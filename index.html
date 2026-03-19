@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local World Models for Articulated Object Manipulation</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #ffffff;
+            --bg-alt: #f8fafc;
+            --text: #1e293b;
+            --text-secondary: #475569;
+            --muted: #64748b;
+            --accent: #2563eb;
+            --accent-light: #dbeafe;
+            --border: #e2e8f0;
+            --border-light: #f1f5f9;
+            --card-bg: #ffffff;
+            --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+            --max-width: 920px;
+            --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --serif: 'Lora', Georgia, 'Times New Roman', serif;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0f172a;
+                --bg-alt: #1e293b;
+                --text: #e2e8f0;
+                --text-secondary: #cbd5e1;
+                --muted: #94a3b8;
+                --accent: #60a5fa;
+                --accent-light: #1e3a5f;
+                --border: #334155;
+                --border-light: #1e293b;
+                --card-bg: #1e293b;
+                --card-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.4);
+            }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--serif);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.8;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        /* ── Header ─────────────────────────────────────────────── */
+        header {
+            text-align: center;
+            padding: 3.5rem 1.5rem 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: var(--sans);
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+            color: var(--text);
+        }
+
+        .venue {
+            font-family: var(--sans);
+            color: var(--muted);
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            font-weight: 400;
+            letter-spacing: 0.02em;
+        }
+
+        .authors {
+            font-family: var(--sans);
+            font-size: 1.05rem;
+            font-weight: 400;
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .authors a {
+            color: var(--text);
+            text-decoration: none;
+            border-bottom: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+
+        .authors a:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .affiliations {
+            font-family: var(--sans);
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .links {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .links a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.55rem 1.25rem;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-family: var(--sans);
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .links a:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: var(--card-shadow);
+            transform: translateY(-1px);
+        }
+
+        .links a svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .wip-badge {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.35rem 0.9rem;
+            background: #fef3c7;
+            color: #92400e;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-family: var(--sans);
+            font-weight: 500;
+            letter-spacing: 0.01em;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .wip-badge { background: #451a03; color: #fbbf24; }
+        }
+
+        .nav-pill {
+            padding: 0.3rem 0.75rem;
+            border-radius: 100px;
+            background: var(--accent-light);
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .nav-pill:hover {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        /* ── Sections ───────────────────────────────────────────── */
+        section {
+            margin-bottom: 3.5rem;
+        }
+
+        h2 {
+            font-family: var(--sans);
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+            letter-spacing: -0.01em;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--accent);
+            display: inline-block;
+        }
+
+        h2::after {
+            content: '';
+            display: block;
+        }
+
+        h3 {
+            font-family: var(--sans);
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin: 2rem 0 0.75rem;
+            color: var(--text);
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+
+        ul {
+            margin: 0.5rem 0 1.25rem 1.5rem;
+            color: var(--text);
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        li strong {
+            color: var(--text);
+        }
+
+        /* ── GIF Grid ───────────────────────────────────────────── */
+        .gif-section-grid {
+            display: grid;
+            grid-template-columns: auto 1fr 1fr;
+            gap: 0.75rem;
+            align-items: start;
+            margin: 1.5rem 0 2rem;
+        }
+
+        .gif-section-grid .col-header {
+            font-family: var(--sans);
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--muted);
+            text-align: center;
+            padding-bottom: 0.25rem;
+        }
+
+        .gif-section-grid .row-label {
+            font-family: var(--sans);
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            writing-mode: horizontal-tb;
+            padding-top: 2rem;
+            padding-right: 0.75rem;
+            white-space: nowrap;
+        }
+
+        .gif-card {
+            text-align: center;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            box-shadow: var(--card-shadow);
+            transition: box-shadow 0.25s ease, transform 0.25s ease;
+        }
+
+        .gif-card:hover {
+            box-shadow: var(--card-shadow-hover);
+            transform: translateY(-2px);
+        }
+
+        .gif-card img {
+            width: 100%;
+            display: block;
+        }
+
+        .gif-card .caption {
+            font-size: 0.8rem;
+            color: var(--muted);
+            padding: 0.5rem 0.5rem;
+            font-family: var(--sans);
+            font-weight: 400;
+        }
+
+        /* Legacy gif-grid for 3-col bias ablation */
+        .gif-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+        }
+
+        .gif-card img {
+            cursor: zoom-in;
+        }
+
+        /* ── Lightbox ──────────────────────────────────────────── */
+        .lightbox-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            cursor: zoom-out;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .lightbox-overlay.active {
+            display: flex;
+        }
+
+        .lightbox-overlay img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 10px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+        }
+
+        .lightbox-caption {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #e2e8f0;
+            font-family: var(--sans);
+            font-size: 0.9rem;
+            background: rgba(0,0,0,0.6);
+            padding: 0.4rem 1rem;
+            border-radius: 6px;
+            pointer-events: none;
+        }
+
+        /* ── Figures ────────────────────────────────────────────── */
+        figure {
+            margin: 2rem 0;
+            text-align: center;
+        }
+
+        figure img {
+            max-width: 100%;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            box-shadow: var(--card-shadow);
+        }
+
+        figcaption {
+            font-size: 0.85rem;
+            color: var(--muted);
+            margin-top: 0.75rem;
+            font-family: var(--sans);
+            line-height: 1.6;
+            max-width: 90%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* ── Table ──────────────────────────────────────────────── */
+        .table-wrap {
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            margin: 1.5rem 0;
+            box-shadow: var(--card-shadow);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--sans);
+            font-size: 0.875rem;
+        }
+
+        th, td {
+            padding: 0.65rem 0.9rem;
+            text-align: center;
+        }
+
+        th {
+            font-weight: 600;
+            background: var(--bg-alt);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--muted);
+            border-bottom: 1.5px solid var(--border);
+        }
+
+        td {
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text);
+        }
+
+        td:first-child, th:first-child {
+            text-align: left;
+            color: var(--text);
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr.highlight {
+            background: var(--accent-light);
+        }
+
+        tr.highlight td {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .check { color: #16a34a; }
+        .cross { color: #dc2626; }
+
+        /* ── Bias ablation arrows ───────────────────────────────── */
+        .bias-grid-wrapper {
+            position: relative;
+        }
+
+        .bias-arrow {
+            display: none;
+        }
+
+        /* ── Side links ────────────────────────────────────────── */
+        .side-links {
+            position: fixed;
+            top: 50%;
+            right: 1.5rem;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 50;
+        }
+
+        .side-links a {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.4rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--card-bg);
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.75rem;
+            font-family: var(--sans);
+            font-weight: 500;
+            box-shadow: var(--card-shadow);
+            cursor: default;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .side-links a:hover {
+            opacity: 1;
+        }
+
+        .side-links a svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 1200px) {
+            .side-links { display: none; }
+        }
+
+        /* ── Footer ─────────────────────────────────────────────── */
+        footer {
+            margin-top: 2rem;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.85rem;
+            text-align: center;
+            font-family: var(--sans);
+        }
+
+        footer a { color: var(--accent); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        /* ── Responsive ─────────────────────────────────────────── */
+        @media (max-width: 700px) {
+            h1 { font-size: 1.75rem; }
+            header { padding: 2rem 1rem 1.5rem; }
+            .gif-section-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .gif-section-grid .row-label {
+                grid-column: 1 / -1;
+                padding: 0.5rem 0 0;
+            }
+            .gif-section-grid .col-header {
+                display: none;
+            }
+            .gif-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Local World Models for<br>Articulated Object Manipulation</h1>
+            <p class="venue">MSc Thesis &middot; University of Amsterdam &middot; 2025</p>
+            <p class="authors">
+                Thijmen Nijdam,
+                Efstratios Gavves,
+                Andrii Zadaianchuk
+            </p>
+            <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem; font-family: var(--sans); font-size: 0.8rem;">
+                <a href="#introduction" class="nav-pill">Introduction</a>
+                <a href="#local-world-model" class="nav-pill">Local World Model</a>
+                <a href="#mpc-planning" class="nav-pill">MPC Planning</a>
+                <a href="#scaling" class="nav-pill">Scaling</a>
+                <a href="#results" class="nav-pill">Results</a>
+                <a href="#conclusion" class="nav-pill">Conclusion</a>
+            </div>
+            <p style="color: var(--muted); font-family: var(--sans); font-size: 0.8rem; margin-top: 1rem;">
+                This page highlights the main approach and results. For the full analysis, please refer to the thesis document.
+            </p>
+        </div>
+    </header>
+
+    <div class="side-links">
+        <a href="#" onclick="return false;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Thesis (soon)
+        </a>
+        <a href="#" onclick="return false;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            Code (soon)
+        </a>
+    </div>
+
+    <div class="container">
+
+
+        <!-- Introduction -->
+        <section id="introduction">
+            <h2>Introduction</h2>
+            <p>
+                General purpose robots operating in domestic and industrial environments often need to interact with articulated objects, such as opening cabinet doors and drawers, opening appliance doors such as ovens, and handling hinged or sliding components on machinery. Articulated objects are rigid body assemblies composed of multiple parts connected by joints that restrict their relative motion. These objects introduce two core challenges. First, the robot must produce motions consistent with the permitted degrees of freedom. Second, it must generalize across the substantial variation in geometry, appearance, and joint configuration that articulated objects exhibit, even within a single object category.
+            </p>
+            <p>
+                World models that predict how the environment evolves under an agent's actions offer a principled approach. Rather than mapping observations directly to actions, a world model learns action-conditioned dynamics from interaction data, which enables planning via Model Predictive Control (MPC). Because the agent optimises actions at test time toward a specified goal, task solving is decoupled from demonstration data. This enables zero-shot manipulation of objects for which no demonstrations exist.
+            </p>
+            <p>
+                Existing world models typically operate at the scene level, encoding observations into scene-wide representations. For articulated object manipulation, this design introduces a fundamental mismatch. The dynamics of articulated manipulation are low-dimensional. Contact at a small number of locations (e.g. a handle or edge) induces rigid-body motion constrained to few degrees of freedom by the object's joint. The task-relevant quantities, namely the pose and motion of a single rigid part, represent only a small fraction of the full scene. Because in MPC the planning cost must be defined over the quantities the world model predicts, a scene-level model computes cost over the entire observation space. For sampling-based MPC to efficiently discover good actions, this cost must decrease approximately monotonically with task progress. Scene-level costs fail this requirement, as illustrated below.
+            </p>
+            <figure>
+                <img src="assets/figures/intro_representation_cost.png" alt="Comparison of scene-level and local world model representations and planning costs" loading="lazy">
+                <figcaption>
+                    Left: scene-level world models predict dynamics over the full scene, including all object parts and the background. Middle: our local world model predicts only the dynamics of the isolated moving part and the end-effector. Right: planning cost evaluated along a ground-truth expert trajectory for both models. The scene-level cost (DINO-WM, MSE in DINOv2 patch-feature space) is non-monotonic despite steady task progress, whereas our affordance-point cost (Euclidean distance to the target location) decreases smoothly and monotonically.
+                </figcaption>
+            </figure>
+            <p>
+                Motivated by these observations, we propose a local, affordance-centric world model for articulated object manipulation. Rather than modelling the full scene, we exploit the structured nature of the task. Articulated manipulation reduces to an end-effector contacting a specific surface location and inducing rigid-body motion along a joint. The world model therefore operates exclusively on the isolated moving part and a single 3D point on its surface marking the intended contact location, which we term the affordance point (e.g. a handle tip or drawer edge). The affordance point serves as the unifying abstraction of the framework. It specifies where the robot should act, the surrounding part geometry informs how the part can move, and the task goal is naturally expressed as a target location for the affordance point. Representation, prediction, and planning objective thus all reside in the same low-dimensional, geometrically interpretable space.
+            </p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Scene-level WM</th>
+                            <th>Local WM</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Action-conditioned dynamics</td>
+                            <td><span class="check">&#10003;</span></td>
+                            <td><span class="check">&#10003;</span></td>
+                        </tr>
+                        <tr>
+                            <td>Irrelevant dynamics removed by construction</td>
+                            <td><span class="cross">&#10007;</span></td>
+                            <td><span class="check">&#10003;</span></td>
+                        </tr>
+                        <tr>
+                            <td>Compact goal specification</td>
+                            <td><span class="cross">&#10007;</span></td>
+                            <td><span class="check">&#10003;</span></td>
+                        </tr>
+                        <tr>
+                            <td>Planning cost reflects task progress</td>
+                            <td><span class="cross">&#10007;</span></td>
+                            <td><span class="check">&#10003;</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p>
+                This formulation yields a direct, geometrically interpretable cost for MPC. The cost combines two terms: an engagement term that brings the end-effector to the affordance point, and a task-progress term measuring the Euclidean distance between the predicted and desired affordance-point location. Because successful manipulation moves the affordance point continuously toward the goal, the task-progress cost decreases monotonically with task progress by construction, providing an effective gradient for sampling-based optimisation. We evaluate across three task types and 16 object instances in simulation, half held out during training. With simple inductive biases that prevent spurious part motion away from contact, MPC solves tasks on both seen and unseen objects without demonstrations, achieving roughly 50% success on unseen objects.
+            </p>
+        </section>
+
+        <!-- Method -->
+        <section id="local-world-model">
+            <h2>Local World Model</h2>
+            <p>
+                This section describes the architecture and training of the local world model (LWM), which implements the affordance-centric dynamics model introduced above. The architecture is joint-type agnostic, designed to handle revolute and prismatic joints without explicit joint-type classification or axis estimation.
+            </p>
+            <figure>
+                <img src="assets/figures/lwm_architecture.png" alt="LWM architecture overview" loading="lazy">
+                <figcaption>
+                    Local World Model architecture. Three observation tokens (point cloud, proprioceptive state, affordance) form a bidirectional prefix. Six action tokens are decoded causally, each attending to the full context and all preceding actions. Each action token's output is passed through two MLP heads to predict the rigid-body transformation and the proprioceptive delta.
+                </figcaption>
+            </figure>
+            <p>
+                At each time step, the agent receives an observation consisting of (i) a part point cloud, a complete 3D surface reconstruction of the moving part (e.g. a drawer front and its handle), (ii) the current affordance point, a single point on the part surface marking the contact site (e.g. a handle tip), and (iii) the proprioceptive state, comprising the end-effector position, orientation, and gripper opening. Given the current observation and a sequence of candidate actions, the dynamics model predicts, for each step, a rigid-body transformation and a proprioceptive update over a 6-step horizon. The transformation is applied to the part point cloud and affordance point to obtain their next positions. Each predicted step yields a full observation, so a single call produces the predicted trajectory.
+            </p>
+            <p>
+                All models are Transformers with a prefix-LM attention mask, trained on expert demonstrations from seen objects (50k steps) combined with varying amounts of interaction data. The interaction dataset is collected by rolling out a diffusion policy from checkpoints saved at different stages of training. Early checkpoints exhibit common failure modes (missed grasps, slips, misalignment) while later ones approximate expert behaviour, together spanning a wide range of interaction outcomes.
+            </p>
+        </section>
+
+        <!-- Planning -->
+        <section id="mpc-planning">
+            <h2>Model-Predictive Planning</h2>
+            <p>
+                The LWM serves as the dynamics model for receding-horizon model-predictive control (MPC). At each environment step the planner samples candidate action sequences and evaluates them by rolling them out through the learned dynamics. The cost function has two terms: an engagement term that encourages the end-effector to approach the affordance point, and a task-progress term that rewards moving the affordance point toward the goal. Only the first action of the lowest-cost sequence is executed, after which the agent observes the true next state and re-plans. Prediction accuracy alone does not guarantee that the LWM is useful for control. A model may track ground-truth trajectories closely yet fail when an optimiser queries it in regions the training data never covered. Planning is therefore a stricter test, requiring the world model to produce predictions accurate enough for an optimiser to discover manipulation strategies from scratch.
+            </p>
+            <p>
+                We minimise the cost using iCEM (improved Cross-Entropy Method). Without additional constraints, MPC achieves near-zero success. The arm moves away from the handle with the gripper open. The LWM hallucinates large affordance displacements toward the goal for out-of-distribution state-action combinations, and the planner exploits these errors. Two simple inductive biases address this.
+            </p>
+            <ul>
+                <li><strong>Contact bias.</strong> A heuristic constraint that suppresses predicted part motion when the gripper is not near the part surface, preventing phantom movements from being rewarded. Since these hallucinations prevent the gripper from making contact in most episodes, this constraint is essential.</li>
+                <li><strong>Kinematics bias.</strong> The LWM's agent-state predictions accumulate error over multi-step rollouts, causing the imagined end-effector trajectory to drift from the physically realisable one. Since the robot's kinematic model is known, we replace the predicted proprioceptive delta with the forward-kinematics result computed from the commanded action.</li>
+            </ul>
+        </section>
+
+        <!-- Architecture Scaling -->
+        <section id="scaling">
+            <h2>Architecture &amp; Data Scaling</h2>
+            <p>
+                Before deploying the LWM for planning, we investigate how prediction accuracy responds to model capacity and training data composition. We evaluate four architectures of increasing capacity (26M, 103M, 204M, and 412M parameters). The LWM jointly predicts two quantities over a 6-step horizon, affordance point displacement (how the contacted part moves) and end-effector state (where the arm ends up). These are qualitatively different prediction problems, and the two targets respond to capacity in qualitatively different ways.
+            </p>
+            <figure>
+                <img src="assets/figures/lwm_scaling.png" alt="LWM architecture scaling" loading="lazy">
+                <figcaption>
+                    6-step prediction error across Transformer architectures of increasing size, averaged over expert and interaction test sets. Left: affordance point error. Right: end-effector error. Star markers denote models trained with 2&times; interaction data (220k vs. 110k steps).
+                </figcaption>
+            </figure>
+            <p>
+                On the affordance target, increasing capacity monotonically reduces error on seen objects. On unseen objects, however, the trend reverses beyond 103M. Larger models overfit to training-object geometries and unseen error rises. Beyond this point, additional capacity enables memorisation of instance-specific contact patterns rather than transferable dynamics. On the end-effector target, the smaller models (26M, 103M) show lower prediction error, while the larger models (204M, 412M) show increased error on both seen and unseen objects. End-effector motion is the simpler of the two prediction problems, so overfitting sets in at a smaller model scale.
+            </p>
+            <figure>
+                <img src="assets/figures/lwm_data_ablation.png" alt="LWM data ablation" loading="lazy">
+                <figcaption>
+                    Effect of interaction data scale on 6-step prediction error for the 204M model. Left: affordance point error. Right: end-effector error. Star markers on the left panel show an ablation that predicts only the affordance point (no end-effector head).
+                </figcaption>
+            </figure>
+            <p>
+                Training on expert data alone yields high error for both targets, confirming that successful demonstrations provide insufficient coverage for learning general dynamics. Adding interaction data substantially reduces affordance error and narrows the seen-unseen gap, confirming that data diversity, not just data volume, is the key driver of transfer. End-effector error decreases monotonically through 220k steps, with the seen-unseen gap narrowing steadily. An affordance-only ablation (star markers) performs worse at all data scales, indicating that end-effector prediction serves as a powerful auxiliary signal that forces the shared Transformer backbone to encode the spatial relationship between arm and part.
+            </p>
+        </section>
+
+        <!-- Results -->
+        <section id="results">
+            <h2>Results</h2>
+            <p>
+                We now evaluate the full planning pipeline on the three manipulation tasks, progressively enabling inductive biases. The base model is the 204M-parameter LWM (LWM-200M), trained on expert and interaction data. We also evaluate LWM-100M (103M parameters), which achieved the lowest unseen-object affordance error. SR@0.8 measures full task completion.
+            </p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Model</th>
+                            <th>Contact</th>
+                            <th>Kinematics</th>
+                            <th>SR@0.8 Seen</th>
+                            <th>SR@0.8 Unseen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>LWM-200M</td>
+                            <td></td>
+                            <td></td>
+                            <td>2.7%</td>
+                            <td>1.0%</td>
+                        </tr>
+                        <tr>
+                            <td>LWM-200M</td>
+                            <td><span class="check">&#10003;</span></td>
+                            <td></td>
+                            <td>36.5%</td>
+                            <td>33.2%</td>
+                        </tr>
+                        <tr>
+                            <td>LWM-200M</td>
+                            <td><span class="check">&#10003;</span></td>
+                            <td><span class="check">&#10003;</span></td>
+                            <td>45.2%</td>
+                            <td>44.6%</td>
+                        </tr>
+                        <tr class="highlight">
+                            <td><strong>LWM-100M</strong></td>
+                            <td><span class="check">&#10003;</span></td>
+                            <td><span class="check">&#10003;</span></td>
+                            <td><strong>51.2%</strong></td>
+                            <td><strong>49.6%</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p>
+                With the contact bias alone, the planner successfully solves tasks, confirming that the LWM has learned dynamics accurate enough for zero-shot task solving. Applying the forward-kinematics bias yields a further improvement, and the seen-unseen gap narrows from 3.3 to 0.6 percentage points, confirming that agent-state prediction errors were a meaningful bottleneck.
+            </p>
+            <p>
+                With forward kinematics handling agent-state prediction, the selection criterion shifts to affordance accuracy. Evaluating LWM-100M with both biases yields a further 6 percentage point improvement. The planner reliably discovers viable approach and contact strategies. Prediction accuracy improvements thus transfer directly to planning performance.
+            </p>
+
+            <h3>Qualitative Effect of Inductive Biases</h3>
+            <p>
+                The following examples show the same object and goal under each bias configuration, making the failure mode of each ablation concrete.
+            </p>
+            <div class="gif-grid">
+                <div class="gif-card">
+                    <img src="assets/gifs/bias_ablation/drawer_seen_45132_no_bias.gif" alt="LWM-200M no bias" loading="lazy">
+                    <p class="caption">No bias<br><span style="font-size:0.75rem">Hallucinated progress</span></p>
+                </div>
+                <div class="gif-card">
+                    <img src="assets/gifs/bias_ablation/drawer_seen_45132_contact.gif" alt="LWM-200M contact bias" loading="lazy">
+                    <p class="caption">+ Contact<br><span style="font-size:0.75rem">Genuine contact</span></p>
+                </div>
+                <div class="gif-card">
+                    <img src="assets/gifs/bias_ablation/drawer_seen_45132_contact_kin.gif" alt="LWM-200M contact + kinematics bias" loading="lazy">
+                    <p class="caption">+ Contact + Kinematics<br><span style="font-size:0.75rem">Task completed</span></p>
+                </div>
+            </div>
+            <p>
+                Without any bias, the gripper moves away from the part while the model hallucinates affordance progress. The planner rewards these phantom trajectories. The contact bias forces the planner to make actual contact before any part motion is credited, enabling genuine grasping behaviour. Forward kinematics then corrects end-effector drift over the planning horizon, allowing the planner to execute the grasp more precisely and complete the task.
+            </p>
+
+            <h3>Zero-Shot MPC Planning Examples</h3>
+            <p>
+                The world model is trained exclusively on 8 seen objects. The examples below show MPC discovering manipulation strategies from scratch on both seen and unseen instances, planned entirely through the learned dynamics without any demonstrations.
+            </p>
+            <div class="gif-section-grid">
+                <!-- Column headers -->
+                <div></div>
+                <div class="col-header">Seen</div>
+                <div class="col-header">Unseen</div>
+
+                <!-- Door sideways -->
+                <div class="row-label">Door (sideways)</div>
+                <div class="gif-card">
+                    <img src="assets/gifs/results/door_seen_45526.gif" alt="MPC opening seen sideways door" loading="lazy">
+                    <p class="caption">Object 45526</p>
+                </div>
+                <div class="gif-card">
+                    <img src="assets/gifs/results/door_unseen_45443.gif" alt="MPC opening unseen sideways door" loading="lazy">
+                    <p class="caption">Object 45443</p>
+                </div>
+
+                <!-- Door downward -->
+                <div class="row-label">Door (downward)</div>
+                <div class="gif-card">
+                    <img src="assets/gifs/results/door_seen_46092.gif" alt="MPC opening seen downward door" loading="lazy">
+                    <p class="caption">Object 46092</p>
+                </div>
+                <div class="gif-card">
+                    <img src="assets/gifs/results/door_unseen_46417.gif" alt="MPC opening unseen downward door" loading="lazy">
+                    <p class="caption">Object 46417</p>
+                </div>
+
+                <!-- Drawer -->
+                <div class="row-label">Drawer</div>
+                <div class="gif-card">
+                    <img src="assets/gifs/results/drawer_seen_44853.gif" alt="MPC opening seen drawer" loading="lazy">
+                    <p class="caption">Object 44853</p>
+                </div>
+                <div class="gif-card">
+                    <img src="assets/gifs/results/drawer_unseen_45290.gif" alt="MPC opening unseen drawer" loading="lazy">
+                    <p class="caption">Object 45290</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Conclusion -->
+        <section id="conclusion">
+            <h2>Conclusion</h2>
+            <p>
+                We proposed a local, affordance-centric world model for articulated object manipulation. By restricting the world model to the isolated moving part and a single contact point, the framework yields a geometrically interpretable planning cost that decreases monotonically with task progress. With two simple inductive biases, the planner reaches roughly 50% success on unseen objects, with the seen-unseen gap narrowing to 1-2 percentage points. Dynamics learned from just eight training objects transfer effectively across instances.
+            </p>
+            <p>
+                Future work includes evaluating on a broader range of articulated objects beyond cabinet furniture, pairing the framework with learned part segmentation and affordance discovery for deployment on physical hardware, and investigating online bootstrapping loops where MPC-collected interactions are used to iteratively retrain the world model.
+            </p>
+        </section>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="lightbox-overlay" id="lightbox">
+        <img src="" alt="">
+        <div class="lightbox-caption" id="lightbox-caption"></div>
+    </div>
+
+    <script>
+        const lightbox = document.getElementById('lightbox');
+        const lbImg = lightbox.querySelector('img');
+        const lbCaption = document.getElementById('lightbox-caption');
+
+        document.querySelectorAll('.gif-card img, figure img').forEach(img => {
+            img.style.cursor = 'zoom-in';
+            img.addEventListener('click', () => {
+                lbImg.src = img.src;
+                const gifCaption = img.closest('.gif-card')?.querySelector('.caption');
+                const figCaption = img.closest('figure')?.querySelector('figcaption');
+                const caption = gifCaption || figCaption;
+                lbCaption.textContent = caption ? caption.textContent : '';
+                lightbox.classList.add('active');
+            });
+        });
+
+        lightbox.addEventListener('click', () => {
+            lightbox.classList.remove('active');
+            lbImg.src = '';
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                lightbox.classList.remove('active');
+                lbImg.src = '';
+            }
+        });
+    </script>
+
+</body>
+</html>
