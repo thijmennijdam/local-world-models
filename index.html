@@ -27,21 +27,19 @@
             --serif: 'Lora', Georgia, 'Times New Roman', serif;
         }
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #0f172a;
-                --bg-alt: #1e293b;
-                --text: #e2e8f0;
-                --text-secondary: #cbd5e1;
-                --muted: #94a3b8;
-                --accent: #60a5fa;
-                --accent-light: #1e3a5f;
-                --border: #334155;
-                --border-light: #1e293b;
-                --card-bg: #1e293b;
-                --card-shadow: 0 1px 3px rgba(0,0,0,0.3);
-                --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.4);
-            }
+        [data-theme="dark"] {
+            --bg: #0f172a;
+            --bg-alt: #1e293b;
+            --text: #e2e8f0;
+            --text-secondary: #cbd5e1;
+            --muted: #94a3b8;
+            --accent: #60a5fa;
+            --accent-light: #1e3a5f;
+            --border: #334155;
+            --border-light: #1e293b;
+            --card-bg: #1e293b;
+            --card-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.4);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -164,8 +162,43 @@
             letter-spacing: 0.01em;
         }
 
-        @media (prefers-color-scheme: dark) {
-            .wip-badge { background: #451a03; color: #fbbf24; }
+        [data-theme="dark"] .wip-badge { background: #451a03; color: #fbbf24; }
+
+        .theme-toggle {
+            position: fixed;
+            top: 14px;
+            right: 16px;
+            background: var(--bg-alt);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-family: var(--sans);
+            font-weight: 500;
+            z-index: 1000;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+        .theme-toggle:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .supervised-by {
+            font-family: var(--sans);
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+        .supervised-by a {
+            color: var(--text);
+            border-bottom: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+        .supervised-by a:hover {
+            border-color: var(--accent);
+            color: var(--accent);
         }
 
         .nav-pill {
@@ -460,16 +493,26 @@
             .gif-grid { grid-template-columns: 1fr; }
         }
     </style>
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = saved || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
 <body>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()"></button>
     <header>
         <div class="container">
             <h1>Local World Models for<br>Articulated Object Manipulation</h1>
             <p class="venue">MSc Thesis &middot; University of Amsterdam &middot; 2025</p>
             <p class="authors">
-                Thijmen Nijdam,
-                Efstratios Gavves,
-                Andrii Zadaianchuk
+                <a href="https://thijmennijdam.github.io/">Thijmen Nijdam</a>
+            </p>
+            <p class="supervised-by">
+                Supervised by: <a href="https://www.egavves.com/">Prof. Efstratios Gavves</a> &nbsp;&amp;&nbsp; <a href="https://zadaianchuk.github.io/">Dr. Andrii Zadaianchuk</a>
             </p>
             <div class="links">
                 <a href="#" onclick="return false;" style="cursor: default; opacity: 0.6;">
@@ -760,6 +803,21 @@
     </div>
 
     <script>
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateToggleLabel();
+        }
+
+        function updateToggleLabel() {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            document.getElementById('themeToggle').textContent = isDark ? 'Light mode' : 'Dark mode';
+        }
+
+        document.addEventListener('DOMContentLoaded', updateToggleLabel);
+
         const lightbox = document.getElementById('lightbox');
         const lbImg = lightbox.querySelector('img');
         const lbCaption = document.getElementById('lightbox-caption');
