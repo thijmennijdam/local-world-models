@@ -405,6 +405,30 @@
             filter: brightness(0.82) contrast(1.05);
         }
 
+        .hero-video {
+            margin: 1.75rem auto 0;
+            max-width: 640px;
+        }
+
+        .hero-video video {
+            width: 100%;
+            display: block;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            box-shadow: var(--card-shadow);
+            transition: filter 0.3s ease, border-color 0.3s ease;
+        }
+
+        [data-theme="dark"] .hero-video video {
+            filter: brightness(0.82) contrast(1.05);
+        }
+
+        .hero-video figcaption {
+            margin-top: 0.5rem;
+            font-family: var(--sans);
+            font-size: 0.8rem;
+        }
+
         figcaption {
             font-size: 0.85rem;
             color: var(--muted);
@@ -544,6 +568,10 @@
                     Code (soon)
                 </a>
             </div>
+            <figure class="hero-video">
+                <video src="assets/videos/hero_door_46417.mp4" poster="assets/videos/hero_door_46417.jpg" autoplay muted loop playsinline preload="auto" aria-label="MPC with the local world model opening an unseen door"></video>
+                <figcaption>Zero-shot MPC with our local world model opening an unseen door (object 46417).</figcaption>
+            </figure>
             <div style="margin-top: 1.25rem; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem; font-family: var(--sans); font-size: 0.8rem;">
                 <a href="#introduction" class="nav-pill">Introduction</a>
                 <a href="#local-world-model" class="nav-pill">Local World Model</a>
