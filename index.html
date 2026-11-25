@@ -413,16 +413,16 @@ footer { font-family: var(--sans); padding: 40px 0 56px; color: var(--muted); fo
 
     <div class="text" style="padding: 0; margin-top: 64px">
       <h3>Effect of the planning biases</h3>
-      <p>We run the same drawer episode, with the same object and goal, under three planner configurations. Without biases, the model sometimes predicts that the part moves before the gripper has touched it, and MPC exploits these predicted displacements.</p>
+      <p>We run one selected drawer episode, with the same object, start, goal and seed, under three planner configurations. Without biases, the model sometimes predicts that the part moves before the gripper has touched it, and MPC exploits these predicted displacements.</p>
     </div>
     <div class="bias-videos" id="biasVideos">
       <div>
         <div class="vcell"><video data-src="assets/videos/biases/no_bias.mp4" poster="assets/videos/biases/no_bias.jpg" muted playsinline preload="none"></video></div>
-        <div class="lbl">No bias<small>The gripper moves away from the handle; the model predicts that the drawer opens.</small></div>
+        <div class="lbl">No bias<small>The gripper moves away from the handle; the model predicts part motion, but the drawer stays closed.</small></div>
       </div>
       <div>
         <div class="vcell"><video data-src="assets/videos/biases/contact.mp4" poster="assets/videos/biases/contact.jpg" muted playsinline preload="none"></video></div>
-        <div class="lbl">+ Contact<small>Part motion only counts after contact; the planner moves to the handle.</small></div>
+        <div class="lbl">+ Contact<small>Part motion only counts after contact; the planner moves to the handle, but does not open the drawer.</small></div>
       </div>
       <div>
         <div class="vcell"><video data-src="assets/videos/biases/contact_kin.mp4" poster="assets/videos/biases/contact_kin.jpg" muted playsinline preload="none"></video></div>
