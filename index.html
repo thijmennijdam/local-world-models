@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local World Models</title>
+<meta name="description" content="A local, affordance-centric world model that opens drawers and doors with zero-shot MPC, reaching up to 65% success on unseen objects after training on only eight.">
+<meta property="og:title" content="Local World Models for Articulated Object Manipulation">
+<meta property="og:description" content="Model only the moving part and one affordance point: zero-shot MPC opens drawers and doors on unseen objects.">
+<meta property="og:image" content="https://thijmennijdam.github.io/local-world-models/assets/fig/teaser_cost.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-alt: #f7f7f5;
+  --surface: #ffffff;
+  --text: #1b1d22;
+  --text-2: #34373e;
+  --muted: #6c6f76;
+  --border: #e3e3df;
+  --accent: #2b5a8c;
+  --accent-2: #2b5a8c;
+  --accent-soft: #e9eff6;
+  --seen: #3b6fd8;
+  --unseen: #e07a2f;
+  --btn: #16181f;
+  --btn-text: #ffffff;
+  --shadow: none;
+  --radius: 14px;
+  --text-w: 900px;
+  --wide-w: 900px;
+  --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+:root[data-theme="dark"] {
+  --bg: #0e1015;
+  --bg-alt: #151821;
+  --surface: #1a1d27;
+  --text: #eceef4;
+  --text-2: #c3c7d3;
+  --muted: #8d93a3;
+  --border: #2a2e3b;
+  --accent: #8fb4dc;
+  --accent-2: #8fb4dc;
+  --accent-soft: #1d2633;
+  --seen: #6f9bf2;
+  --unseen: #f0954a;
+  --btn: #eceef4;
+  --btn-text: #0e1015;
+  --shadow: none;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--serif); background: var(--bg); color: var(--text); font-size: 18px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+img, video { display: block; max-width: 100%; }
+.text { max-width: var(--text-w); margin: 0 auto; padding: 0 20px; }
+.wide { max-width: var(--wide-w); margin: 0 auto; padding: 0 20px; }
+.wide .text { max-width: none; }
+section { padding: 56px 0; border-top: 1px solid var(--border); }
+h2 { font-family: var(--sans); font-size: 1.6rem; line-height: 1.25; letter-spacing: -.01em; font-weight: 600; margin-bottom: 1rem; text-wrap: balance; }
+h3 { font-family: var(--sans); font-size: 1.12rem; font-weight: 600; letter-spacing: -.01em; margin: 2rem 0 .6rem; }
+p { color: var(--text-2); margin-bottom: 1rem; }
+p strong { color: var(--text); }
+
+
+/* ---------- top bar ---------- */
+.topbar { position: sticky; top: 0; z-index: 20; backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); background: color-mix(in srgb, var(--bg) 78%, transparent); border-bottom: 1px solid transparent; transition: border-color .2s; }
+.topbar.scrolled { border-bottom-color: var(--border); }
+.topbar .wide { display: flex; align-items: center; justify-content: space-between; height: 54px; gap: 1rem; }
+.brand { font-family: var(--sans); font-weight: 600; font-size: .95rem; color: var(--text); letter-spacing: -.01em; white-space: nowrap; }
+.brand:hover { text-decoration: none; }
+.nav { display: flex; gap: 1.3rem; font-size: .88rem; font-family: var(--sans); }
+.nav a { color: var(--muted); font-weight: 500; }
+.nav a:hover, .nav a.active { color: var(--text); text-decoration: none; }
+.theme-btn { background: none; border: 1px solid var(--border); color: var(--text-2); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; flex: none; }
+.theme-btn svg { width: 16px; height: 16px; }
+@media (max-width: 760px) { .nav { display: none; } }
+
+/* ---------- hero ---------- */
+.hero { padding: 56px 0 48px; text-align: center; font-family: var(--sans); }
+.venue { font-size: .95rem; color: var(--muted); margin-top: .9rem; }
+.hero h1 { font-family: var(--serif); font-size: clamp(1.9rem, 4.2vw, 2.7rem); line-height: 1.18; letter-spacing: -.01em; font-weight: 600; margin-bottom: 1.4rem; text-wrap: balance; }
+.authors { font-size: 1.05rem; color: var(--text); font-weight: 500; line-height: 1.9; }
+.authors span { white-space: nowrap; margin: 0 .45rem; }
+.authors sup, .affils sup { color: var(--muted); font-weight: 500; font-size: .68em; margin-left: 1px; }
+.affils { color: var(--muted); font-size: .92rem; margin-top: .35rem; }
+.affils span { margin: 0 .55rem; white-space: nowrap; }
+.buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem; margin-top: 1.8rem; }
+.btn { display: inline-flex; align-items: center; gap: .45rem; background: var(--btn); color: var(--btn-text); padding: .5rem 1rem; border-radius: 6px; font-size: .9rem; font-weight: 500; transition: transform .15s, opacity .15s; }
+.btn:hover { text-decoration: none; opacity: .85; }
+.btn svg { width: 17px; height: 17px; }
+.hero-media { margin: 40px auto 0; max-width: var(--text-w); padding: 0 20px; }
+.hero-media .frame { border-radius: 6px; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--border); background: #000; }
+.hero-media video { width: 100%; aspect-ratio: 4 / 3; max-height: 620px; object-fit: cover; }
+.caption { font-family: var(--sans); font-size: .85rem; color: var(--muted); margin-top: .85rem; line-height: 1.55; text-align: center; }
+.caption b { color: var(--text-2); font-weight: 600; }
+
+/* ---------- tl;dr ---------- */
+.tldr { font-size: 1.22rem; line-height: 1.6; color: var(--text); font-weight: 500; letter-spacing: -.01em; }
+.tldr .k { font-weight: 700; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 2.2rem; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 22px 18px; }
+.stat .num { font-size: 2.4rem; font-weight: 800; letter-spacing: -.04em; line-height: 1.05; }
+.stat .lbl { font-size: .9rem; color: var(--muted); margin-top: .45rem; line-height: 1.45; }
+@media (max-width: 760px) { .stats { grid-template-columns: 1fr; } }
+
+/* ---------- figures ---------- */
+figure { margin: 2rem 0; }
+.fig-card { background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 12px; }
+.fig-card img { width: 100%; height: auto; cursor: zoom-in; }
+figcaption { font-family: var(--sans); font-size: .85rem; color: var(--muted); margin-top: .8rem; line-height: 1.55; }
+figcaption b { color: var(--text-2); font-weight: 600; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
+
+/* comparison table */
+.cmp { font-family: var(--sans); width: 100%; border-collapse: collapse; font-size: .95rem; margin: 1.5rem 0 .5rem; }
+.cmp th, .cmp td { padding: .7rem .9rem; border-bottom: 1px solid var(--border); text-align: center; }
+.cmp th:first-child, .cmp td:first-child { text-align: left; color: var(--text-2); }
+.cmp th { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.cmp th.ours { color: var(--accent); }
+.yes { color: #1f9d55; font-weight: 700; }
+.no { color: #c2410c; font-weight: 700; }
+:root[data-theme="dark"] .yes { color: #4ade80; }
+:root[data-theme="dark"] .no { color: #fb923c; }
+
+/* steps */
+.steps { display: grid; gap: 28px; margin-top: 2rem; }
+.step { display: grid; grid-template-columns: 1fr 1.15fr; gap: 32px; align-items: center; }
+.step:nth-child(even) .step-media { order: -1; }
+.step .num { display: none; }
+.step h3 { margin-top: 0; }
+@media (max-width: 860px) { .step { grid-template-columns: 1fr; gap: 16px; } .step:nth-child(even) .step-media { order: 0; } }
+.bias-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 1rem; }
+.bias { border-left: 2px solid var(--border); padding: 2px 0 2px 14px; }
+.bias h4 { font-family: var(--sans); font-size: .92rem; font-weight: 600; margin-bottom: .3rem; }
+.bias p { font-size: .9rem; margin: 0; line-height: 1.55; }
+@media (max-width: 560px) { .bias-cards { grid-template-columns: 1fr; } }
+
+/* ---------- videos ---------- */
+.vgrid { display: grid; grid-template-columns: 110px repeat(3, 1fr); gap: 14px; align-items: center; margin-top: 2rem; }
+.vgrid { font-family: var(--sans); }
+.vgrid .colh { font-weight: 600; font-size: .95rem; text-align: center; }
+.vgrid .colh small { display: block; color: var(--muted); font-weight: 500; font-size: .8rem; }
+.vgrid .rowh { font-weight: 650; font-size: .9rem; }
+.vgrid .rowh small { display: block; color: var(--muted); font-weight: 500; font-size: .78rem; line-height: 1.35; }
+.vcell { position: relative; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); background: #d9d9d9; }
+.vcell video { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.vcell .task { display: none; position: absolute; left: 8px; bottom: 8px; font-size: .7rem; font-weight: 600; padding: .1rem .5rem; border-radius: 999px; background: rgba(255,255,255,.85); color: #14161c; }
+@media (max-width: 760px) {
+  .vgrid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .vgrid .corner, .vgrid .colh { display: none; }
+  .vgrid .rowh { grid-row: 1; text-align: center; }
+  .vgrid .rowh.seen { grid-column: 1; } .vgrid .rowh.unseen { grid-column: 2; }
+  .vcell.s { grid-column: 1; } .vcell.u { grid-column: 2; }
+  .vcell.t1 { grid-row: 2; } .vcell.t2 { grid-row: 3; } .vcell.t3 { grid-row: 4; }
+  .vcell .task { display: block; }
+}
+.bias-videos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 1.8rem; }
+.bias-videos .lbl { margin-top: .6rem; font-family: var(--sans); font-weight: 600; font-size: .92rem; }
+.bias-videos .lbl small { display: block; color: var(--muted); font-weight: 500; font-size: .85rem; line-height: 1.45; }
+@media (max-width: 760px) { .bias-videos { grid-template-columns: 1fr; } }
+.replay { margin-top: 1rem; display: inline-flex; align-items: center; gap: .4rem; background: var(--surface); border: 1px solid var(--border); color: var(--text-2); font: 500 .85rem var(--sans); padding: .35rem .8rem; border-radius: 6px; cursor: pointer; }
+.replay svg { width: 14px; height: 14px; }
+
+/* ---------- results chart ---------- */
+.controls { font-family: var(--sans); display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin: 1.8rem 0 1.2rem; }
+.seg { display: inline-flex; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+section.alt .seg { background: var(--surface); }
+.seg button { border: 0; background: none; font: 600 .85rem var(--sans); color: var(--muted); padding: .38rem .95rem; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+.ctl-label { font-size: .8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; margin-right: .4rem; }
+.legend { display: inline-flex; gap: 1rem; font-size: .88rem; color: var(--text-2); margin-left: auto; }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.chart-wrap { display: grid; grid-template-columns: 1fr 1.25fr; gap: 20px; }
+@media (max-width: 900px) { .chart-wrap { grid-template-columns: 1fr; } .legend { margin-left: 0; } }
+.panel { font-family: var(--sans); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 20px 20px 16px; }
+.panel h4 { font-size: .95rem; font-weight: 650; margin-bottom: .2rem; }
+.panel .hint { font-size: .82rem; color: var(--muted); margin-bottom: 1rem; }
+.groups { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; height: 250px; align-items: end; border-bottom: 1px solid var(--border); position: relative; }
+.gridline { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); font-size: .7rem; color: var(--muted); pointer-events: none; }
+.gridline span { position: absolute; right: 0; top: -1.1em; background: var(--surface); padding-left: 4px; }
+.group { height: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 4px; cursor: pointer; border-radius: 10px 10px 0 0; padding: 0 6px; position: relative; z-index: 1; transition: background .15s; }
+.group:hover { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); }
+.group.sel { background: var(--accent-soft); }
+.bar { width: 34%; max-width: 40px; border-radius: 4px 4px 0 0; position: relative; transition: height .45s cubic-bezier(.2,.8,.2,1); }
+.bar.seen { background: var(--seen); }
+.bar.unseen { background: var(--unseen); }
+.bar .v { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font-size: .76rem; font-weight: 600; color: var(--text-2); padding-bottom: 3px; white-space: nowrap; }
+.glabels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: .55rem; text-align: center; font-size: .82rem; color: var(--text-2); font-weight: 600; line-height: 1.3; }
+.glabels small { display: block; color: var(--muted); font-weight: 500; }
+.objs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
+.objs h5 { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: .2rem; }
+.orow { display: grid; grid-template-columns: 124px 1fr 30px; align-items: center; gap: 8px; font-size: .8rem; height: 24px; }
+.orow .name { color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.orow .name em { font-style: normal; color: var(--muted); font-family: var(--mono); font-size: .72rem; }
+.otrack { height: 12px; background: var(--bg-alt); border-radius: 4px; position: relative; overflow: hidden; }
+.ofill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; transition: width .45s cubic-bezier(.2,.8,.2,1); }
+.ofill.seen { background: var(--seen); }
+.ofill.unseen { background: var(--unseen); }
+.orow .val { text-align: right; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.omean { margin-top: .4rem; padding-top: .4rem; border-top: 1px solid var(--border); }
+.omean .name { font-weight: 650; color: var(--text); }
+@media (max-width: 560px) { .objs { grid-template-columns: 1fr; } }
+details.warning { font-family: var(--sans); font-size: .9rem; border: 1px solid var(--border); border-radius: 6px; padding: .6rem .9rem; margin-bottom: 1rem; }
+details.warning summary { cursor: pointer; color: var(--text-2); }
+details.warning p { margin: .6rem 0 0; line-height: 1.55; }
+details.table { margin-top: 1.4rem; }
+details.table { font-family: var(--sans); }
+details.table summary { cursor: pointer; font-size: .9rem; font-weight: 600; color: var(--accent); }
+.restab { width: 100%; border-collapse: collapse; font-size: .9rem; margin-top: 1rem; font-variant-numeric: tabular-nums; }
+.restab th, .restab td { padding: .5rem .6rem; text-align: center; border-bottom: 1px solid var(--border); }
+.restab th { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.restab td:first-child, .restab th:first-child { text-align: left; }
+.restab tr.best td { font-weight: 700; color: var(--text); }
+.restab td small { color: var(--muted); font-weight: 400; }
+.table-scroll { overflow-x: auto; }
+
+/* takeaways */
+.takeaways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 2rem; }
+.take { border-left: 2px solid var(--border); padding: .2rem 0 .2rem 1rem; }
+.take h4 { font-family: var(--sans); font-weight: 600; font-size: .95rem; margin-bottom: .3rem; }
+.take p { font-size: .92rem; margin: 0; line-height: 1.55; }
+@media (max-width: 860px) { .takeaways { grid-template-columns: 1fr; } }
+
+/* bibtex */
+.bib { position: relative; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 4px; padding: 20px; font-family: var(--mono); font-size: .82rem; line-height: 1.6; color: var(--text-2); overflow-x: auto; white-space: pre; }
+.copy { position: absolute; top: 12px; right: 12px; font: 600 .78rem var(--sans); background: var(--surface); color: var(--text-2); border: 1px solid var(--border); padding: .3rem .7rem; border-radius: 8px; cursor: pointer; }
+footer { font-family: var(--sans); padding: 40px 0 56px; color: var(--muted); font-size: .85rem; text-align: center; border-top: 1px solid var(--border); }
+
+/* lightbox */
+.lb { position: fixed; inset: 0; background: rgba(8,9,12,.88); display: none; place-items: center; z-index: 50; padding: 24px; cursor: zoom-out; }
+.lb.on { display: grid; }
+.lb img { max-width: 96vw; max-height: 90vh; background: #fff; border-radius: 10px; padding: 12px; }
+
+/* motion */
+@media (prefers-reduced-motion: reduce) { .bar, .ofill { transition: none; } html { scroll-behavior: auto; } }
+
+/* ---------- one column width ---------- */
+.step { grid-template-columns: 1fr; gap: 18px; }
+.step:nth-child(even) .step-media { order: 0; }
+.chart-wrap { grid-template-columns: 1fr; }
+</style>
+<script>
+(function () {
+  var t = null;
+  try { t = localStorage.getItem('theme'); } catch (e) {}
+  if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+</head>
+<body>
+<header class="topbar" id="topbar">
+  <div class="wide">
+    <a class="brand" href="#top">Local World Models</a>
+    <nav class="nav">
+      <a href="#overview">Overview</a>
+      <a href="#method">Method</a>
+      <a href="#rollouts">Rollouts</a>
+      <a href="#results">Results</a>
+      <a href="#scaling">Scaling</a>
+      <a href="#citation">BibTeX</a>
+    </nav>
+    <button class="theme-btn" id="themeBtn" aria-label="Toggle dark mode">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+<!-- ================= HERO ================= -->
+<div class="hero">
+  <div class="text">
+    <h1>Local World Models for Articulated Object Manipulation</h1>
+    <div class="authors">
+      <span>Thijmen Nijdam<sup>1</sup></span>
+      <span>Mikel Zhobro<sup>2</sup></span>
+      <span>Christian Gumbsch<sup>1</sup></span>
+      <span>Rahaf Aljundi<sup>3</sup></span>
+      <span>Stratis Gavves<sup>1</sup></span>
+      <span>Andrii Zadaianchuk<sup>4</sup></span>
+    </div>
+    <div class="affils">
+      <span><sup>1</sup>University of Amsterdam</span>
+      <span><sup>2</sup>University of Tübingen</span>
+      <span><sup>3</sup>Toyota Motor Europe</span>
+      <span><sup>4</sup>New Theory</span>
+    </div>
+    <div class="venue">RSS 2026 Workshop on Robot World Models</div>
+    <div class="buttons">
+      <a class="btn" href="https://openreview.net/forum?id=T6LLwbiR4S" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Workshop Paper
+      </a>
+      <a class="btn" href="https://github.com/thijmennijdam/local-world-models-code" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.39.6.11.8-.26.8-.58v-2.23c-3.34.73-4.03-1.42-4.03-1.42-.55-1.39-1.33-1.76-1.33-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.49 1 .11-.78.42-1.31.76-1.6-2.67-.31-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.65 1.65.24 2.87.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.82 1.1.82 2.22v3.29c0 .32.19.69.8.58C20.57 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        Code
+      </a>
+      <a class="btn" href="https://huggingface.co/collections/thijmennijdam/local-world-models-6b06b6f6a5501877cced0743" target="_blank" rel="noopener">
+        <span aria-hidden="true">🤗</span> Data &amp; Models
+      </a>
+    </div>
+  </div>
+  <div class="hero-media">
+    <div class="frame">
+      <video src="assets/videos/teaser_drawer_44853.mp4" poster="assets/videos/teaser_drawer_44853.jpg" autoplay muted loop playsinline preload="auto" aria-label="A Franka arm opening a drawer by planning with the local world model"></video>
+    </div>
+    <p class="caption">A simulated Franka arm opens a drawer with MPC, using the learned local world model as the dynamics model.</p>
+  </div>
+</div>
+
+<!-- ================= ABSTRACT ================= -->
+<section id="overview">
+  <span id="introduction"></span>
+  <div class="text">
+    <h2>Abstract</h2>
+    <p>Cabinets, drawers and doors are everywhere in human environments. Learning predictive models of them remains hard, because their geometries and joint configurations vary widely. Most world models predict the full scene. Dynamics prediction and planning then take place in a high-dimensional space, where much of the variation is irrelevant to the task. To open a drawer, however, a robot mainly needs to know how one part moves.</p>
+    <p>Building on this observation, we propose a local, affordance-centric world model. It represents only the moving part, a single affordance point on its surface, and the robot state. The model predicts rigid-body transformations directly in this compact geometric space, where representation, dynamics and goal share one coordinate frame. Combined with sampling-based Model Predictive Control (MPC), it opens drawers and doors from closed states without task-specific policy training, and reaches up to 65% success on unseen objects. The model is trained on interactions with only eight objects, yet planning success does not degrade on unseen ones. This suggests that the dynamics of articulated objects transfer across instances when they are modeled locally.</p>
+  </div>
+  <div class="text">
+    <figure >
+      <div class="fig-card"><img src="assets/fig/teaser_cost.png" alt="Scene-level versus local world models and their planning costs" loading="lazy"></div>
+      <figcaption><b>Figure 1.</b> Left: a scene-level world model operates on the full scene. Middle: ours uses only the moving part and its affordance point. Right: planning cost along an expert trajectory. The scene-level cost (DINO-WM, MSE in DINOv2 feature space) is dominated by task-irrelevant motion and is non-monotonic, while the affordance-point distance decreases smoothly with task progress.</figcaption>
+    </figure>
+  </div>
+  <div class="text">
+    <table class="cmp">
+      <thead><tr><th></th><th>Scene-level WM</th><th class="ours">Local WM (ours)</th></tr></thead>
+      <tbody>
+        <tr><td>Action-conditioned dynamics</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Task-irrelevant dynamics removed by construction</td><td class="no">✗</td><td class="yes">✓</td></tr>
+        <tr><td>Goal is a single 3D target point</td><td class="no">✗</td><td class="yes">✓</td></tr>
+        <tr><td>Planning cost decreases with task progress</td><td class="no">✗</td><td class="yes">✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= METHOD ================= -->
+<section id="method">
+  <span id="local-world-model"></span>
+  <div class="wide">
+    <div class="text" style="padding: 0">
+      <h2>Method</h2>
+      <p>The affordance point is the central abstraction. It tells the robot <em>where</em> to act. The geometry of the part around it determines <em>how</em> the part can move. The goal is then simply a target location for the same point.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <span class="num">1</span>
+          <h3>Local observation</h3>
+          <p>The observation has three parts: the point cloud of the moving part (512 points), one affordance point on its surface, such as the handle, and the robot's proprioceptive state, namely its end-effector position, orientation and gripper opening. Everything else in the scene is left out. The goal is a target location for the affordance point.</p>
+        </div>
+        <div class="step-media"><div class="fig-card"><img src="assets/fig/local_representation.png" alt="Local observation extraction" loading="lazy"></div></div>
+      </div>
+      <div class="step">
+        <div>
+          <span class="num">2</span>
+          <h3>Local world model</h3>
+          <p>The world model is a Transformer with a prefix-LM attention mask. Point cloud, proprioception and affordance tokens form a bidirectional prefix, and six action tokens are decoded causally. At each step, two MLP heads predict an <strong>SE(3) rigid-body transform</strong> of the part and the change in robot state. The transform moves both the part and its affordance point, so one forward pass yields a full 6-step trajectory. Nothing in the design depends on the joint type: the model handles revolute and prismatic joints without joint classification or axis estimation.</p>
+        </div>
+        <div class="step-media"><div class="fig-card"><img src="assets/fig/lwm_architecture.png" alt="Local World Model architecture" loading="lazy"></div></div>
+      </div>
+      <div class="step">
+        <div>
+          <span class="num">3</span>
+          <h3 id="mpc-planning">Planning with MPC</h3>
+          <p>At each step, iCEM samples candidate action sequences and rolls them out through the model. The cost combines an <strong>engagement term</strong>, which brings the gripper to the affordance point, with a <strong>task-progress term</strong>, the Euclidean distance from the predicted affordance point to its goal. The robot executes the first action and plans again. Without further constraints, the optimizer exploits model errors. We therefore add two known priors:</p>
+          <div class="bias-cards">
+            <div class="bias"><h4>Contact bias</h4><p>A part cannot move unless the gripper touches it. The planner therefore gets no credit for part motion predicted before contact.</p></div>
+            <div class="bias"><h4>Kinematics bias</h4><p>The robot's own motion is known. The commanded action therefore replaces the predicted change in robot state.</p></div>
+          </div>
+        </div>
+        <div class="step-media"><div class="fig-card"><img src="assets/fig/tasks.png" alt="The three tasks: drawer, side-hinged door, bottom-hinged door" loading="lazy"></div>
+          <p class="caption" style="text-align:left">Three tasks from PartNet-Mobility in PyBullet: a drawer (prismatic), a side-hinged door and a bottom-hinged door (revolute).</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ROLLOUTS ================= -->
+<section id="rollouts">
+  <div class="wide">
+    <div class="text" style="padding: 0">
+      <h2>Example episodes</h2>
+      <p>The clips show successful MPC episodes on training (seen) and held-out (unseen) objects. The world model is trained on interactions with eight objects. These are selected examples: with the best configuration, about half of the episodes on seen objects and about a third on unseen objects do not reach full completion (see Results).</p>
+    </div>
+    <div class="vgrid">
+      <div class="corner"></div>
+      <div class="colh">Drawer<small>prismatic</small></div>
+      <div class="colh">Side-hinged door<small>revolute, vertical axis</small></div>
+      <div class="colh">Bottom-hinged door<small>revolute, horizontal axis</small></div>
+
+      <div class="rowh seen">Seen<small>training objects</small></div>
+      <div class="vcell s t1"><span class="task">Drawer</span><video data-src="assets/videos/rollouts/drawer_seen_44853.mp4" poster="assets/videos/rollouts/drawer_seen_44853.jpg" muted loop playsinline preload="none"></video></div>
+      <div class="vcell s t2"><span class="task">Side door</span><video data-src="assets/videos/rollouts/door_seen_45526.mp4" poster="assets/videos/rollouts/door_seen_45526.jpg" muted loop playsinline preload="none"></video></div>
+      <div class="vcell s t3"><span class="task">Bottom door</span><video data-src="assets/videos/rollouts/door_seen_46092.mp4" poster="assets/videos/rollouts/door_seen_46092.jpg" muted loop playsinline preload="none"></video></div>
+
+      <div class="rowh unseen">Unseen<small>held-out objects</small></div>
+      <div class="vcell u t1"><span class="task">Drawer</span><video data-src="assets/videos/rollouts/drawer_unseen_45290.mp4" poster="assets/videos/rollouts/drawer_unseen_45290.jpg" muted loop playsinline preload="none"></video></div>
+      <div class="vcell u t2"><span class="task">Side door</span><video data-src="assets/videos/rollouts/door_unseen_45443.mp4" poster="assets/videos/rollouts/door_unseen_45443.jpg" muted loop playsinline preload="none"></video></div>
+      <div class="vcell u t3"><span class="task">Bottom door</span><video data-src="assets/videos/rollouts/door_unseen_46417.mp4" poster="assets/videos/rollouts/door_unseen_46417.jpg" muted loop playsinline preload="none"></video></div>
+    </div>
+
+    <div class="text" style="padding: 0; margin-top: 64px">
+      <h3>Effect of the planning biases</h3>
+      <p>We run the same drawer episode, with the same object and goal, under three planner configurations. Without biases, the model sometimes predicts that the part moves before the gripper has touched it, and MPC exploits these predicted displacements.</p>
+    </div>
+    <div class="bias-videos" id="biasVideos">
+      <div>
+        <div class="vcell"><video data-src="assets/videos/biases/no_bias.mp4" poster="assets/videos/biases/no_bias.jpg" muted playsinline preload="none"></video></div>
+        <div class="lbl">No bias<small>The gripper moves away from the handle; the model predicts that the drawer opens.</small></div>
+      </div>
+      <div>
+        <div class="vcell"><video data-src="assets/videos/biases/contact.mp4" poster="assets/videos/biases/contact.jpg" muted playsinline preload="none"></video></div>
+        <div class="lbl">+ Contact<small>Part motion only counts after contact; the planner moves to the handle.</small></div>
+      </div>
+      <div>
+        <div class="vcell"><video data-src="assets/videos/biases/contact_kin.mp4" poster="assets/videos/biases/contact_kin.jpg" muted playsinline preload="none"></video></div>
+        <div class="lbl">+ Contact + Kinematics<small>The predicted arm motion follows the commanded action; the drawer is opened.</small></div>
+      </div>
+    </div>
+    <button class="replay" id="replayBias"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Replay</button>
+  </div>
+</section>
+
+<!-- ================= RESULTS ================= -->
+<section id="results">
+  <div class="wide">
+    <div class="text" style="padding: 0">
+      <h2>Results</h2>
+      <details class="warning">
+        <summary>⚠️ <b>The planning results differ from the OpenReview version</b> (click to expand)</summary>
+        <p>After the workshop publication we found and fixed a bug in the planning code. Most planning success rates are now higher than in the OpenReview version.</p>
+      </details>
+      <p>We evaluate zero-shot MPC on 8 seen and 8 unseen objects, with 50 episodes per object. <strong>The planning biases are essential.</strong> Without them, MPC rarely completes the task (10–27% SR@0.8). The contact bias raises success to 34–60%, and the kinematics bias adds another 4–24 points. <strong>Success does not drop on unseen objects.</strong> In every configuration it is at least as high as on seen objects, although the variation between objects is large and the unseen drawers are among the easiest instances.</p>
+      <p><strong>Why are the biases needed?</strong> Our interaction data are limited and come from only eight objects. MPC, however, searches for the actions that look best under the model, so it also visits states that the data barely cover. A typical case is a gripper that is close to the handle but not touching it. The model does not reliably tell the two apart and can predict that the part moves. The contact bias rules this out by hand. We see it partly as a substitute for broader interaction data, and expect it to become less important as data coverage grows.</p>
+    </div>
+    <div class="controls">
+      <span><span class="ctl-label">Model</span><span class="seg" id="segModel"><button data-v="100M" aria-pressed="false">LWM-100M</button><button data-v="200M" aria-pressed="true">LWM-200M</button></span></span>
+      <span class="legend"><span><i style="background: var(--seen)"></i>Seen objects</span><span><i style="background: var(--unseen)"></i>Unseen objects</span></span>
+    </div>
+    <div class="chart-wrap">
+      <div class="panel">
+        <h4>Success rate by planning bias</h4>
+        <div class="hint">Mean over 8 objects. Click a configuration to see it per object.</div>
+        <div class="groups" id="groups"></div>
+        <div class="glabels"><div>No bias</div><div>+ Contact</div><div>+ Contact<small>+ Kinematics</small></div></div>
+      </div>
+      <div class="panel">
+        <h4 id="objTitle">Per object</h4>
+        <div class="hint">Success rate (%) per object, 50 episodes each. The unseen drawers are among the easiest instances.</div>
+        <div class="objs" id="objs"></div>
+      </div>
+    </div>
+    <details class="table">
+      <summary>Show the full table</summary>
+      <div class="table-scroll">
+      <table class="restab">
+        <thead>
+          <tr><th>Model</th><th>Contact</th><th>Kinematics</th><th>SR@0.8 seen</th><th>SR@0.8 unseen</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>LWM-100M</td><td></td><td></td><td>9.5 <small>±11.5</small></td><td>15.5 <small>±10.7</small></td></tr>
+          <tr><td>LWM-100M</td><td>✓</td><td></td><td>34.3 <small>±11.5</small></td><td>37.0 <small>±17.7</small></td></tr>
+          <tr><td>LWM-100M</td><td>✓</td><td>✓</td><td>40.1 <small>±17.3</small></td><td>60.5 <small>±19.2</small></td></tr>
+          <tr><td>LWM-200M</td><td></td><td></td><td>14.5 <small>±14.0</small></td><td>26.5 <small>±19.5</small></td></tr>
+          <tr><td>LWM-200M</td><td>✓</td><td></td><td>45.9 <small>±9.4</small></td><td>60.2 <small>±23.9</small></td></tr>
+          <tr class="best"><td>LWM-200M</td><td>✓</td><td>✓</td><td>53.9 <small>±14.3</small></td><td>64.5 <small>±23.8</small></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="caption" style="text-align:left">Mean ± std over the per-object success rates. SR@0.8 is full completion. One seen object has 49 episodes because one archived start state is missing.</p>
+    </details>
+  </div>
+</section>
+
+<!-- ================= SCALING ================= -->
+<section id="scaling">
+  <div class="wide">
+    <div class="text" style="padding: 0">
+      <h2>Model and data scale</h2>
+      <p>The model predicts two quantities over a 6-step horizon: the motion of the affordance point and the resulting end-effector state. We report the error at the last step on held-out episodes.</p>
+    </div>
+    <div class="two">
+      <figure style="margin: 1rem 0 0">
+        <div class="fig-card"><img src="assets/fig/scaling_model.png" alt="Prediction error across Transformer sizes" loading="lazy"></div>
+        <figcaption><b>Model scale.</b> Step-6 error across four Transformer sizes (26M–412M). Stars: 2× interaction data. Left: affordance error. Right: end-effector error.</figcaption>
+      </figure>
+      <figure style="margin: 1rem 0 0">
+        <div class="fig-card"><img src="assets/fig/scaling_data.png" alt="Prediction error versus interaction-data scale" loading="lazy"></div>
+        <figcaption><b>Data scale.</b> 200M model, from expert-only data to 220k interaction steps. Stars: affordance-only ablation without the end-effector head.</figcaption>
+      </figure>
+    </div>
+    <div class="takeaways">
+      <div class="take"><h4>Model size</h4><p>From 26M to 412M parameters, the affordance error stays at 0.07–0.09 cm (seen) and 0.20–0.23 cm (unseen).</p></div>
+      <div class="take"><h4>Interaction data</h4><p>Expert demonstrations alone leave a high error. Adding 30k interaction steps reduces the affordance error on unseen objects by about 5×. Beyond about 70k steps the error plateaus, which suggests that more of the same data is not enough.</p></div>
+      <div class="take"><h4>Joint prediction</h4><p>A model that predicts only the affordance is worse at every data scale than one that also predicts the end-effector state.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CONCLUSION ================= -->
+<section id="conclusion">
+  <div class="text">
+    <h2>Discussion and limitations</h2>
+    <p>We presented a local, affordance-centric world model that opens drawers and doors through planning. Its main result is that there is no seen–unseen gap in planning success: from interactions with only eight objects, the learned dynamics transfer across geometries and joint configurations. This suggests that a local, part-centric space is a natural place to model the dynamics of articulated objects.</p>
+    <p><strong>Limitations.</strong> Absolute success rates are moderate. The cost only measures how far the affordance point moves, so many successful episodes rely on incidental contact or nudging rather than a stable grasp. The study is also small: we train on eight cabinet-like objects, evaluate only in simulation, and take part segmentation and affordance points from the simulator. We do not compare against a scene-level world model on the same tasks.</p>
+    <p><strong>Next steps.</strong> Three directions follow naturally. The first is to scale up, with larger datasets such as ArtVIP and with planning rollouts as new training data. The second is to model contact better, by moving from PyBullet to MuJoCo. The third is to improve realism, by replacing simulator inputs with learned 3D reconstruction and affordance prediction.</p>
+  </div>
+</section>
+
+<!-- ================= CITATION ================= -->
+<section id="citation">
+  <div class="text">
+    <h2>BibTeX</h2>
+    <div class="bib" id="bib"><button class="copy" id="copyBib">Copy</button>@inproceedings{nijdam2026lwm,
+  title     = {Local World Models for Articulated Object Manipulation},
+  author    = {Nijdam, Thijmen and Zhobro, Mikel and Gumbsch, Christian and
+               Aljundi, Rahaf and Gavves, Stratis and Zadaianchuk, Andrii},
+  booktitle = {RSS 2026 Workshop on Robot World Models},
+  year      = {2026}
+}</div>
+  </div>
+</section>
+</main>
+
+<footer>
+</footer>
+
+<div class="lb" id="lb"><img alt=""></div>
+
+<script>
+  // One decimal, ties to even, so the chart matches the results table.
+  function fmt1(v) {
+    const t = v * 10, f = Math.floor(t), d = t - f;
+    const n = Math.abs(d - 0.5) < 1e-6 ? (f % 2 ? f + 1 : f) : Math.round(t);
+    return (n / 10).toFixed(1);
+  }
+
+// ---------- theme ----------
+document.getElementById('themeBtn').addEventListener('click', function () {
+  var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('theme', next); } catch (e) {}
+});
+
+// ---------- sticky bar + active nav ----------
+var topbar = document.getElementById('topbar');
+var navLinks = Array.prototype.slice.call(document.querySelectorAll('.nav a'));
+function onScroll() {
+  topbar.classList.toggle('scrolled', window.scrollY > 8);
+  var cur = null;
+  navLinks.forEach(function (a) {
+    var s = document.querySelector(a.getAttribute('href'));
+    if (s && s.getBoundingClientRect().top < 120) cur = a;
+  });
+  navLinks.forEach(function (a) { a.classList.toggle('active', a === cur); });
+}
+window.addEventListener('scroll', onScroll, { passive: true });
+onScroll();
+
+
+// ---------- lazy autoplay videos ----------
+var vidObs = new IntersectionObserver(function (es) {
+  es.forEach(function (e) {
+    var v = e.target;
+    if (e.isIntersecting) {
+      if (!v.src) { v.src = v.dataset.src; }
+      if (v.loop) v.play().catch(function () {});
+    } else if (v.loop) { v.pause(); }
+  });
+}, { rootMargin: '200px 0px' });
+document.querySelectorAll('.vgrid video').forEach(function (v) { vidObs.observe(v); });
+
+// bias videos: play the three together once visible, then on demand
+var biasVids = Array.prototype.slice.call(document.querySelectorAll('#biasVideos video'));
+function playBias() {
+  biasVids.forEach(function (v) { if (!v.src) v.src = v.dataset.src; v.currentTime = 0; });
+  biasVids.forEach(function (v) { v.play().catch(function () {}); });
+}
+var biasStarted = false;
+new IntersectionObserver(function (es) {
+  if (es[0].isIntersecting && !biasStarted) { biasStarted = true; playBias(); }
+}, { threshold: 0.35 }).observe(document.getElementById('biasVideos'));
+document.getElementById('replayBias').addEventListener('click', playBias);
+
+// ---------- lightbox ----------
+var lb = document.getElementById('lb');
+document.querySelectorAll('.fig-card img').forEach(function (img) {
+  img.addEventListener('click', function () { lb.querySelector('img').src = img.src; lb.classList.add('on'); });
+});
+lb.addEventListener('click', function () { lb.classList.remove('on'); });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') lb.classList.remove('on'); });
+
+// ---------- copy bibtex ----------
+document.getElementById('copyBib').addEventListener('click', function () {
+  var btn = this;
+  var txt = document.getElementById('bib').textContent.replace(/^Copy/, '').trim();
+  navigator.clipboard.writeText(txt).then(function () {
+    btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+  });
+});
+
+// ---------- results chart ----------
+// Per-object success rates (%) from the Table 1 runs; split means are the per-object averages.
+var DATA = {"objects":[{"id":"35059","split":"seen","type":"door_side"},{"id":"45166","split":"seen","type":"door_side"},{"id":"45526","split":"seen","type":"door_side"},{"id":"46092","split":"seen","type":"door_down"},{"id":"44817","split":"seen","type":"drawer"},{"id":"44853","split":"seen","type":"drawer"},{"id":"45092","split":"seen","type":"drawer"},{"id":"45132","split":"seen","type":"drawer"},{"id":"45249","split":"unseen","type":"door_side"},{"id":"45443","split":"unseen","type":"door_side"},{"id":"46417","split":"unseen","type":"door_down"},{"id":"47388","split":"unseen","type":"door_side"},{"id":"45135","split":"unseen","type":"drawer"},{"id":"45243","split":"unseen","type":"drawer"},{"id":"45290","split":"unseen","type":"drawer"},{"id":"45374","split":"unseen","type":"drawer"}],"runs":{"100M/none":{"35059":0.0,"45166":38.0,"45249":16.0,"45443":4.0,"45526":14.0,"46092":2.0,"46417":0.0,"47388":12.0,"44817":8.0,"44853":4.0,"45092":6.0,"45132":4.0,"45135":30.0,"45243":32.0,"45290":20.0,"45374":10.0},"100M/contact":{"35059":34.69,"45166":60.0,"45249":24.0,"45443":18.0,"45526":38.0,"46092":28.0,"46417":16.0,"47388":60.0,"44817":34.0,"44853":32.0,"45092":32.0,"45132":16.0,"45135":64.0,"45243":50.0,"45290":26.0,"45374":38.0},"100M/contact_kin":{"35059":48.98,"45166":70.0,"45249":64.0,"45443":32.0,"45526":34.0,"46092":18.0,"46417":26.0,"47388":66.0,"44817":36.0,"44853":48.0,"45092":14.0,"45132":52.0,"45135":70.0,"45243":82.0,"45290":78.0,"45374":66.0},"200M/none":{"35059":2.04,"45166":48.0,"45249":12.0,"45443":4.0,"45526":8.0,"46092":0.0,"46417":2.0,"47388":18.0,"44817":10.0,"44853":14.0,"45092":16.0,"45132":18.0,"45135":32.0,"45243":58.0,"45290":50.0,"45374":36.0},"200M/contact":{"35059":48.98,"45166":62.0,"45249":42.0,"45443":16.0,"45526":36.0,"46092":40.0,"46417":38.0,"47388":72.0,"44817":48.0,"44853":56.0,"45092":32.0,"45132":44.0,"45135":66.0,"45243":88.0,"45290":74.0,"45374":86.0},"200M/contact_kin":{"35059":40.82,"45166":76.0,"45249":58.0,"45443":20.0,"45526":48.0,"46092":36.0,"46417":34.0,"47388":76.0,"44817":48.0,"44853":60.0,"45092":46.0,"45132":76.0,"45135":78.0,"45243":90.0,"45290":72.0,"45374":88.0}}};
+var TYPE = { drawer: 'Drawer', door_side: 'Side door', door_down: 'Bottom door' };
+var BIASES = [['none', 'No bias'], ['contact', '+ Contact'], ['contact_kin', '+ Contact + Kinematics']];
+var state = { model: '200M', bias: 'contact_kin' };
+
+function mean(run, split) {
+  var objs = DATA.objects.filter(function (o) { return o.split === split; });
+  return objs.reduce(function (s, o) { return s + run[o.id]; }, 0) / objs.length;
+}
+
+var groupsEl = document.getElementById('groups');
+[25, 50, 75, 100].forEach(function (y) {
+  var g = document.createElement('div'); g.className = 'gridline'; g.style.bottom = y + '%';
+  g.innerHTML = '<span>' + y + '</span>'; groupsEl.appendChild(g);
+});
+BIASES.forEach(function (b) {
+  var g = document.createElement('div'); g.className = 'group'; g.dataset.bias = b[0];
+  g.setAttribute('role', 'button'); g.setAttribute('tabindex', '0'); g.setAttribute('aria-label', b[1]);
+  g.innerHTML = '<div class="bar seen"><span class="v"></span></div><div class="bar unseen"><span class="v"></span></div>';
+  g.addEventListener('click', function () { state.bias = b[0]; render(); });
+  g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); state.bias = b[0]; render(); } });
+  groupsEl.appendChild(g);
+});
+
+var objsEl = document.getElementById('objs');
+['seen', 'unseen'].forEach(function (split) {
+  var col = document.createElement('div');
+  col.innerHTML = '<h5>' + (split === 'seen' ? 'Seen objects' : 'Unseen objects') + '</h5>';
+  DATA.objects.filter(function (o) { return o.split === split; }).forEach(function (o) {
+    var r = document.createElement('div'); r.className = 'orow'; r.dataset.id = o.id;
+    r.innerHTML = '<span class="name">' + TYPE[o.type] + ' <em>' + o.id + '</em></span><span class="otrack"><span class="ofill ' + split + '"></span></span><span class="val"></span>';
+    col.appendChild(r);
+  });
+  var m = document.createElement('div'); m.className = 'orow omean'; m.dataset.mean = split;
+  m.innerHTML = '<span class="name">Mean</span><span class="otrack"><span class="ofill ' + split + '"></span></span><span class="val"></span>';
+  col.appendChild(m);
+  objsEl.appendChild(col);
+});
+
+function render() {
+  BIASES.forEach(function (b) {
+    var run = DATA.runs[state.model + '/' + b[0]];
+    var g = groupsEl.querySelector('[data-bias="' + b[0] + '"]');
+    g.classList.toggle('sel', b[0] === state.bias);
+    ['seen', 'unseen'].forEach(function (split) {
+      var v = mean(run, split);
+      var bar = g.querySelector('.bar.' + split);
+      bar.style.height = v + '%';
+      bar.querySelector('.v').textContent = fmt1(v);
+    });
+  });
+  var run = DATA.runs[state.model + '/' + state.bias];
+  objsEl.querySelectorAll('.orow').forEach(function (r) {
+    var v = r.dataset.id ? run[r.dataset.id] : mean(run, r.dataset.mean);
+    r.querySelector('.ofill').style.width = v + '%';
+    r.querySelector('.val').textContent = r.dataset.id ? Math.round(v) : fmt1(v);
+  });
+  var label = BIASES.filter(function (b) { return b[0] === state.bias; })[0][1];
+  document.getElementById('objTitle').textContent = 'Per object · LWM-' + state.model + ' ' + label + ' · SR@0.8';
+}
+
+function bindSeg(id, key) {
+  var seg = document.getElementById(id);
+  seg.querySelectorAll('button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      seg.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === btn ? 'true' : 'false'); });
+      state[key] = btn.dataset.v; render();
+    });
+  });
+}
+bindSeg('segModel', 'model');
+render();
+</script>
+</body>
+</html>
